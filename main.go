@@ -17,6 +17,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform       string
 }
 
 func main() {
@@ -27,9 +28,17 @@ func main() {
 		log.Fatalf(".env file error: %v", err)
 	}
 
-	dburl := os.Getenv("DB_URL")
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set")
+	}
 
-	db, err := sql.Open("postgres", dburl)
+	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM must be set")
+	}
+
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("SQL open err: %v", err)
 	}
@@ -46,6 +55,7 @@ func main() {
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
+		platform:       platform,
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
@@ -54,9 +64,11 @@ func main() {
 
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 
-	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
+	mux.Handle("POST /admin/reset", apiCfg.middlewareCheckPlatform(http.HandlerFunc(apiCfg.handlerReset)))
 
 	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
+
+	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 
 	fmt.Println("Serving on port: " + port)
 
@@ -64,13 +76,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error Server: %v", err)
 	}
-}
-
-func (a *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		a.fileserverHits.Add(1)
-		next.ServeHTTP(w, r)
-	})
 }
 
 func (a *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {

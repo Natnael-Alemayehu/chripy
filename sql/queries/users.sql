@@ -10,3 +10,6 @@ INSERT INTO users(
     $3,
     $4
 ) RETURNING *;
+
+-- name: DeleteUsers :exec
+DELETE FROM users;
