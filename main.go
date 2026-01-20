@@ -66,12 +66,17 @@ func main() {
 
 	mux.Handle("POST /admin/reset", apiCfg.middlewareCheckPlatform(http.HandlerFunc(apiCfg.handlerReset)))
 
-	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
-
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 
-	fmt.Println("Serving on port: " + port)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirps)
 
+	mux.HandleFunc("GET /api/chirps", apiCfg.handlerListChirps)
+
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirpsByID)
+
+	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
+
+	fmt.Println("Serving on port: " + port)
 	err = srv.ListenAndServe()
 	if err != nil {
 		log.Fatalf("Error Server: %v", err)
