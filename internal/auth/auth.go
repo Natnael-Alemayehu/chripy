@@ -1,25 +1,23 @@
 package auth
 
 import (
-	"fmt"
-
 	"github.com/alexedwards/argon2id"
 )
 
+// HashPassword -
 func HashPassword(password string) (string, error) {
 	hash, err := argon2id.CreateHash(password, argon2id.DefaultParams)
 	if err != nil {
-		return "", fmt.Errorf("Error creating hash password: %v", err)
+		return "", err
 	}
-
 	return hash, nil
 }
 
+// CheckPasswordHash -
 func CheckPasswordHash(password, hash string) (bool, error) {
-	match, _, err := argon2id.CheckHash(password, hash)
+	match, err := argon2id.ComparePasswordAndHash(password, hash)
 	if err != nil {
 		return false, err
 	}
-
 	return match, nil
 }
