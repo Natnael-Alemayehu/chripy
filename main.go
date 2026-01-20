@@ -1,20 +1,40 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
 	"time"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/natnael-alemayehu/chirpy/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
 }
 
 func main() {
 	const port = "8080"
 	mux := http.NewServeMux()
+
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf(".env file error: %v", err)
+	}
+
+	dburl := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dburl)
+	if err != nil {
+		log.Fatalf("SQL open err: %v", err)
+	}
+
+	dbQueries := database.New(db)
 
 	srv := &http.Server{
 		Addr:         ":" + port,
@@ -25,6 +45,7 @@ func main() {
 
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
+		db:             dbQueries,
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir("./")))))
@@ -38,7 +59,8 @@ func main() {
 	mux.HandleFunc("POST /api/validate_chirp", handlerChirpsValidate)
 
 	fmt.Println("Serving on port: " + port)
-	err := srv.ListenAndServe()
+
+	err = srv.ListenAndServe()
 	if err != nil {
 		log.Fatalf("Error Server: %v", err)
 	}
