@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/natnael-alemayehu/chirpy/internal/auth"
 	"github.com/natnael-alemayehu/chirpy/internal/database"
 )
 
@@ -22,8 +23,7 @@ type ChirpApp struct {
 
 func (cfg *apiConfig) handlerCreateChirps(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Body   string `json:"body"`
-		UserID string `json:"user_id"`
+		Body string `json:"body"`
 	}
 
 	var param parameters
@@ -32,9 +32,15 @@ func (cfg *apiConfig) handlerCreateChirps(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	uid, err := uuid.Parse(param.UserID)
+	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "uuid parse error", err)
+		respondWithError(w, http.StatusUnauthorized, "Expect's a Bearer token", err)
+		return
+	}
+
+	uid, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Token not valid", err)
 		return
 	}
 
