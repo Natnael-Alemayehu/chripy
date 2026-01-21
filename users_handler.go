@@ -58,3 +58,56 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		Email:     usr.Email,
 	})
 }
+
+func (cfg *apiConfig) hanlderUpdateUser(w http.ResponseWriter, r *http.Request) {
+	type parameter struct {
+		Password string `json:"password"`
+		Email    string `json:"email"`
+	}
+	type response struct {
+		User
+	}
+
+	var param parameter
+	if err := json.NewDecoder(r.Body).Decode(&param); err != nil {
+		respondWithError(w, http.StatusBadGateway, "password or email not correct", err)
+		return
+	}
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Token error", err)
+		return
+	}
+
+	uid, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token", err)
+		return
+	}
+
+	hash, err := auth.HashPassword(param.Password)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Password hashing failed", err)
+		return
+	}
+
+	updatedUser, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             uid,
+		Email:          param.Email,
+		HashedPassword: hash,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed Writing to database", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		User: User{
+			ID:        updatedUser.ID,
+			CreatedAt: updatedUser.CreatedAt,
+			UpdatedAt: updatedUser.UpdatedAt,
+			Email:     updatedUser.Email,
+		},
+	})
+}

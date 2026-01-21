@@ -73,18 +73,18 @@ func main() {
 
 	mux.Handle("POST /admin/reset", apiCfg.middlewareCheckPlatform(http.HandlerFunc(apiCfg.handlerReset)))
 
-	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
-
+	// chirp related endpoints
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirps)
-
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerListChirps)
-
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirpsByID)
 
+	// User related end point
+	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
+	mux.HandleFunc("PUT /api/users", apiCfg.hanlderUpdateUser)
+
+	// Auth related endpoints
 	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
-
 	mux.HandleFunc("POST /api/refresh", apiCfg.handlerRefreshToken)
-
 	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevokeRefreshToken)
 
 	fmt.Println("Serving on port: " + port)
