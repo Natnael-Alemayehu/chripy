@@ -83,6 +83,10 @@ func main() {
 
 	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)
 
+	mux.HandleFunc("POST /api/refresh", apiCfg.handlerRefreshToken)
+
+	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevokeRefreshToken)
+
 	fmt.Println("Serving on port: " + port)
 	err = srv.ListenAndServe()
 	if err != nil {
