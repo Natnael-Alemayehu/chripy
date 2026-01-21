@@ -2,48 +2,60 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/natnael-alemayehu/chirpy/internal/auth"
 )
 
-func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
-	chirpIDStr := r.PathValue("chirpID")
-
-	chirpID, err := uuid.Parse(chirpIDStr)
-	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "invalid chirpid format", err)
+func (cfg *apiConfig) handlerUpdateSubscription(w http.ResponseWriter, r *http.Request) {
+	type parameter struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID string `json:"user_id"`
+		} `json:"data"`
 	}
 
-	token, err := auth.GetBearerToken(r.Header)
+	apiKey, err := auth.GetAPIKey(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "token not formatted properly", err)
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized request: API key err", err)
 		return
 	}
 
-	userid, err := auth.ValidateJWT(token, cfg.secret)
-	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "token not formatted properly", err)
+	if apiKey != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized request: API key err", err)
 		return
 	}
 
-	chirp, err := cfg.db.GetChirpByID(r.Context(), chirpID)
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "failed to read body", err)
+	}
+
+	var param parameter
+	if err := json.Unmarshal(data, &param); err != nil {
+		respondWithError(w, http.StatusBadRequest, "json not formatted correctly", err)
+		return
+	}
+
+	if param.Event != "user.upgraded" {
+		respondWithJSON(w, http.StatusNoContent, struct{}{})
+	}
+
+	userID, err := uuid.Parse(param.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusBadGateway, "user_id not formatted correctly", err)
+	}
+
+	_, err = cfg.db.UpdateUserChirpyRed(r.Context(), userID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			respondWithError(w, http.StatusNotFound, "chirp not found", err)
+			respondWithError(w, http.StatusNotFound, "", err)
 			return
 		}
-		respondWithError(w, http.StatusInternalServerError, "chirp error", err)
-	}
-
-	if chirp.UserID != userid {
-		respondWithError(w, http.StatusForbidden, "You can not delete this chirp", err)
-		return
-	}
-
-	if err := cfg.db.DeleteChirp(r.Context(), chirp.ID); err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Chirp delition not successful", err)
+		respondWithError(w, http.StatusInternalServerError, "Error saving data to db", err)
 		return
 	}
 
