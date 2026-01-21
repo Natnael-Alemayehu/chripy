@@ -77,10 +77,12 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirps)
 	mux.HandleFunc("GET /api/chirps", apiCfg.handlerListChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.handlerGetChirpsByID)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDeleteChirp)
 
 	// User related end point
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
 	mux.HandleFunc("PUT /api/users", apiCfg.hanlderUpdateUser)
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerUpdateSubscription)
 
 	// Auth related endpoints
 	mux.HandleFunc("POST /api/login", apiCfg.handlerLogin)

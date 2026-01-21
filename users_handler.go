@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -11,11 +13,12 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Password  string    `json:"-"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Email       string    `json:"email"`
+	Password    string    `json:"-"`
+	IsChirpyRed bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -52,10 +55,11 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	respondWithJSON(w, http.StatusCreated, User{
-		ID:        usr.ID,
-		CreatedAt: usr.CreatedAt,
-		UpdatedAt: usr.UpdatedAt,
-		Email:     usr.Email,
+		ID:          usr.ID,
+		CreatedAt:   usr.CreatedAt,
+		UpdatedAt:   usr.UpdatedAt,
+		Email:       usr.Email,
+		IsChirpyRed: usr.IsChirpyRed,
 	})
 }
 
@@ -104,10 +108,53 @@ func (cfg *apiConfig) hanlderUpdateUser(w http.ResponseWriter, r *http.Request) 
 
 	respondWithJSON(w, http.StatusOK, response{
 		User: User{
-			ID:        updatedUser.ID,
-			CreatedAt: updatedUser.CreatedAt,
-			UpdatedAt: updatedUser.UpdatedAt,
-			Email:     updatedUser.Email,
+			ID:          updatedUser.ID,
+			CreatedAt:   updatedUser.CreatedAt,
+			UpdatedAt:   updatedUser.UpdatedAt,
+			Email:       updatedUser.Email,
+			IsChirpyRed: updatedUser.IsChirpyRed,
 		},
 	})
+}
+
+func (cfg *apiConfig) handlerUpdateSubscription(w http.ResponseWriter, r *http.Request) {
+	type parameter struct {
+		Event string `json:"event"`
+		Data  struct {
+			UserID string `json:"user_id"`
+		} `json:"data"`
+	}
+
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "failed to read body", err)
+	}
+
+	var param parameter
+	if err := json.Unmarshal(data, &param); err != nil {
+		respondWithError(w, http.StatusBadRequest, "json not formatted correctly", err)
+		return
+	}
+
+	if param.Event != "user.upgraded" {
+		respondWithJSON(w, http.StatusNoContent, struct{}{})
+	}
+
+	userID, err := uuid.Parse(param.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusBadGateway, "user_id not formatted correctly", err)
+	}
+
+	_, err = cfg.db.UpdateUserChirpyRed(r.Context(), userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			respondWithError(w, http.StatusNotFound, "", err)
+			return
+		}
+		respondWithError(w, http.StatusInternalServerError, "Error saving data to db", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, struct{}{})
+
 }
