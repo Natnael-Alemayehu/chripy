@@ -1,4 +1,4 @@
-Chirpy — Minimal Twitter-like Go API
+# Chirpy — Minimal Twitter-like Go API
 
 Overview
 --------
