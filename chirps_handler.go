@@ -74,8 +74,20 @@ func (cfg *apiConfig) handlerListChirps(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusInternalServerError, "list chirps error", err)
 	}
 
+	authorID := uuid.Nil
+	authorIDString := r.URL.Query().Get("author_id")
+	if authorIDString != "" {
+		authorID, err = uuid.Parse(authorIDString)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "Invalid author ID", err)
+			return
+		}
+	}
 	chirpApps := []ChirpApp{}
 	for _, v := range chrps {
+		if authorID != uuid.Nil && v.UserID != authorID {
+			continue
+		}
 		chirpApps = append(chirpApps, ChirpApp{
 			ID:        v.ID.String(),
 			CreatedAt: v.CreatedAt,
